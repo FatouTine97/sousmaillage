@@ -1,0 +1,44 @@
+% clear previous data
+clear;
+cd '/home/fatou/Documents/sous_maillage/TP';
+
+% Load data from file
+M = load('carto_t1.dat');
+
+nbt = 20;        % Nombre d'iteration temporell Number 
+nbc = 1;         % % Nombre de composantes de champ (ex: Ez seulement)
+nuc = 1;         % Numéro de la composante qu’on veut visualiser
+
+
+nbcouleur = 256;% nombre de couleurs dans la palette (256 → standard pour les colormaps)
+taille = size(M); % taille du matrice
+nbl = taille(1) / (nbt * nbc); %nombre de lignes de données par image
+offset = nbl * nbc; %nombre total de lignes pour chaque pas de temps 
+
+figure(1); %Ouvre une figure 
+clf; % le nettoie 
+
+colormap(jet(nbcouleur)); % utiliqser lepalette de couleur  
+
+for j = 1:nbt %Boucle sur chaque pas de temps j allant de 1 à nbt
+    nut = j;
+    imin = (nuc - 1) * nbl + 1 + (nut - 1) * offset;
+    imax = (nut - 1) * offset + nuc * nbl;
+    
+    M1 = M(imin:imax, :); %extrait la sous-matrice correspondant à l'image 2D à afficher
+    
+    maximum = max(abs(M1), [], 'all'); %Trouve le maximum des valeurs absolues dans M1, pour normaliser l’intensité du champ.
+    if maximum == 0
+        maximum = 1;
+    end
+    
+    M2 = nbcouleur * abs(M1) / maximum;% est la matrice d’image normalisée, mise à l’échelle entre 0 et nbcouleur.
+    
+    % Plotting
+    imagesc(M2);                % affiche la matrice sous forme d'image colorée.
+    axis image;                 % conserve le bon rapport largeur/hauteur
+    colorbar;                   % ajoute une échelle de couleurs.
+    title(['Time step: ', num2str(j)]); %affiche le numéro du pas de temps en titre.
+    
+    pause(1);                 % Pause for 0.5 seconds
+end
