@@ -70,7 +70,7 @@ allocate(this%c_H(0:Nx, 0:Ny),  this%c_E(0:Nx, 0:Ny))
         dy_prime     = 0.5*dy + 0.5*dy_sm
         f_Hy         = dy/dy_sm
         fez          = 1.0
-        dt_prime     = dt/r
+        dt_prime     = dt
 
 
 open(unit=10, file="Ez_t.dat",    status = 'replace', action = 'write')
