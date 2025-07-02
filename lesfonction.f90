@@ -78,8 +78,12 @@ open(unit=11, file="Hx_t.dat",    status = 'replace', action = 'write')
 open(unit=12, file="Hy_t.dat",    status = 'replace', action = 'write')
 open(unit=13, file="carto_t.dat", status = 'replace', action = 'write')
 open(unit=14, file="carto_t1.dat",status = 'replace', action = 'write')
-open(unit=15, file="ez_s.dat",status = 'replace', action = 'write')
+open(unit=15, file="ez_s.dat",    status = 'replace', action = 'write')
 
+! fichier de comparaison 
+
+open(unit=16, file="ez_s1.dat",   status = 'replace', action = 'write')
+open(unit=17, file="Ez_obs.dat",   status = 'replace', action = 'write')
  m = 0
 Ezx0_n1 = 0.d0 ;    Ezx0_n2 = 0.0d0 
 Ezx_n1  = 0.d0 ;    Ezx_n2  = 0.0d0
@@ -184,7 +188,6 @@ Haux_y = (2.0/9.0)*Hz2  + (1.0/9.0)*Hz3
     do i = 1, Nx_sm - 1
 !if (i > i1) then
     do j = 1, Ny_sm- 1   
-        
     fd%ez_s(i,j) = fd%ez_s(i,j) + dt_prime/ (epsilon_0 * dx_sm) * (fd%hy_s(i,j) - &
     fd%hy_s(i-1,j)) - dt_prime/ (epsilon_0 * dy_sm) * (fd%hx_s(i,j) - fd%hx_s(i,j-1))
      end do
@@ -198,9 +201,8 @@ Haux_y = (2.0/9.0)*Hz2  + (1.0/9.0)*Hz3
  
 do j = 1, Ny_sm - 1
 do i = 1, Nx_sm - 1
-
 fd%ez_s(i1,j) = fd%ez_s(i1,j) + (dt_prime/ epsilon_0 ) *&
-        ((fd%hy_s(i,j) - (f_Hy *Haux_y))/dx_prime - &
+      ((fd%hy_s(i,j) - (f_Hy *Haux_y))/dx_prime - &
         (fd%hx_s(i,j+1) - fd%hx_s(i,j))/(dy_sm))
 end do
 end do 
@@ -235,10 +237,9 @@ eaux_z = (1.0d0 / 3.0d0) * ( &
             2.0d0 * fd%ez_s(i1-1, j+1)/ 3.0d0  + 1.0d0  * fd%ez_s(i1, j)/ 3.0d0)
 end do
 
-
+ ! Mise à jour de Hy à l'interface
 do j = 0, Ny - 1
 i = i1 
-  ! Mise à jour de Hy à l'interface
   fd%Hy(i, j) =fd%Hy(i, j) +   (dt/ mu_0 * dx) * (fez * eaux_z - fd%Ez(i, j))    
   !end do 
 end do
@@ -246,19 +247,19 @@ end do
     write(10,*) n*dt, fd%Ez(100,100), fd%Ez(150,100), fd%Ez(50,100), fd%Ez(1,150)
     write(11,*) n*dt, fd%Hx(100,100), fd%Hx(150,100), fd%Hx(50,100), fd%Hx(1,150)
     write(12,*) n*dt, fd%Hy(100,100), fd%Hy(150,100), fd%Hy(50,100), fd%Hy(1,150)
-if (mod(n, 100) == 0 .and. n > 0) then
+    write(16,*) n*dt_prime, fd%ez_s(250,250)
+    write(17,*) n*dt, fd%Ez(250,250)
+   if (mod(n, 100) == 0 .and. n > 0) then
     m = m + 1
-    
+
+    ! on n’écrit que la valeur Ez(i,j), séparée par un espace
      do i = 1, Nx, 2
-     do j = 1, Ny, 2
-      ! on n’écrit que la valeur Ez(i,j), séparée par un espace
-      WRITE(14,'(F17.14,1X)', advance = 'no') fd%Ez(i,j)
-    end do
+       write(14,*) (fd%Ez(i,j), j= 0, Ny, 2)
     end do
      write(14,*)
 
-     do i = 1, Nx_sm, 2
-         write(13,*) (fd%ez_s(i,j), j= 0, Ny_sm, 2)
+     do i = i1, Nx, 2
+         write(13,*) (fd%ez_s(i,j), j= 0, Ny, 2)
     end do
  write(13,*)
   end if   

@@ -1,4 +1,3 @@
-
 clear;
 cd '/home/fatou/Documents/sous_maillage/TP';
 M = load('carto_t1.dat');
@@ -15,7 +14,7 @@ nbl = 250;
 
 % Calcule le nombre de pas de temps maximum possibles
 nbt = floor(total_lines / (nbl * nbc));
-fprintf('Nombre de pas de temps détectés : %d\n', nbt);  
+fprintf('Nombre de pas de temps détectés : %d\n', nbt);
 
 offset = nbl * nbc;
 
