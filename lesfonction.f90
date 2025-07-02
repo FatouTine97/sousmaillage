@@ -121,10 +121,12 @@ Ezy_n1(Ny - 1, :) = fd%Ez(:, Ny - 1)            ! temps n - 1 pas j = Ny - 1
 Ezy_n1(Ny, :)     = fd%Ez(:, Ny)                ! temps n - 1 pas j = Ny
             
 do i = 1, Nx - 1
- if (i < i1 ) then
+ if (i < i1 .and. i > i2) then
 do j = 1, Ny - 1
+if (j < j1 .and. j > j2) then
 fd%Ez(i,j) = fd%Ez(i,j) + fd%c_E(i,j) * ((fd%Hy(i,j) - fd%Hy(i-1,j))/ dx  &
                         - (fd%Hx(i,j) - fd%Hx(i,j-1)) / dy)
+end if
 end do
 end if
 end do
@@ -150,22 +152,26 @@ fd%Ez(: , Ny) =   - Ezy_n2(Ny - 1, :)                                         &
                   + coef_mur2 * (Ezy_n1(Ny, :) + Ezy_n1(Ny - 1,:))
 
              ! Source dans domaine grossier
-fd%Ez(250, 250) = fd%Ez(250, 250) + Esrc(n)
+fd%Ez(Nx/5  , Ny/5) = fd%Ez(Nx/5 , Ny/5) + Esrc(n)
 
             ! Mise à jour Hx dans le domaine grossier       
 do i = 0, Nx - 1
  if (i < i1 ) then
 do j = 0, Ny - 1
+if (j < j1 ) then
      fd%Hx(i,j) = fd%Hx(i,j) - fd%c_H(i,j) / dy * (fd%Ez(i,j+1) - fd%Ez(i,j))
+     end if 
 end do
  end if
 end do
 
             ! Mise à jour  Hy dans le domaine grossier
-do i = 0, Nx - 1  
-    if (i < i1 ) then
+do i = 0, Nx - 1
+ if (i < i1 ) then
 do j = 0, Ny - 1
+if (j < j1) then
 fd%Hy(i,j) = fd%Hy(i,j) + fd%c_H(i,j) / dx * (fd%Ez(i+1,j) - fd%Ez(i,j))
+end if 
  end do
     end if
 end do
@@ -194,7 +200,7 @@ Haux_y = (2.0/9.0)*Hz2  + (1.0/9.0)*Hz3
     ! end if 
     end do
     ! Source dans le sous-maillage
-!fd%ez_s(350, Ny_sm/2) = fd%ez_s(350, Ny_sm/2) + Esrc(n)
+fd%ez_s(350, Ny_sm/2) = fd%ez_s(350, Ny_sm/2) + Esrc(n)
 
 
 ! le champs electrique dans l'interface
@@ -238,16 +244,16 @@ eaux_z = (1.0d0 / 3.0d0) * ( &
 end do
 
  ! Mise à jour de Hy à l'interface
-do j = 0, Ny - 1
-i = i1 
-  fd%Hy(i, j) =fd%Hy(i, j) +   (dt/ mu_0 * dx) * (fez * eaux_z - fd%Ez(i, j))    
+!do j = 0, Ny - 1
+!i = i1 
+  !fd%Hy(i, j) =fd%Hy(i, j) +   (dt/ mu_0 * dx) * (fez * eaux_z - fd%Ez(i, j))    
   !end do 
-end do
+!end do
 
-    write(10,*) n*dt, fd%Ez(100,100), fd%Ez(150,100), fd%Ez(50,100), fd%Ez(1,150)
+    write(10,*) n*dt, fd%Ez(250,100), fd%Ez(150,100), fd%Ez(50,100), fd%Ez(1,150)
     write(11,*) n*dt, fd%Hx(100,100), fd%Hx(150,100), fd%Hx(50,100), fd%Hx(1,150)
     write(12,*) n*dt, fd%Hy(100,100), fd%Hy(150,100), fd%Hy(50,100), fd%Hy(1,150)
-    write(16,*) n*dt_prime, fd%ez_s(250,250)
+    write(16,*) n*dt_prime, fd%ez_s(350,250)
     write(17,*) n*dt, fd%Ez(250,250)
    if (mod(n, 100) == 0 .and. n > 0) then
     m = m + 1
@@ -258,8 +264,8 @@ end do
     end do
      write(14,*)
 
-     do i = i1, Nx, 2
-         write(13,*) (fd%ez_s(i,j), j= 0, Ny, 2)
+     do i = 1, Nx_sm, 2
+         write(13,*) (fd%ez_s(i,j), j= 0, Ny_sm, 2)
     end do
  write(13,*)
   end if   
@@ -269,6 +275,7 @@ write(15,*) n*dt_prime, fd%ez_s(350,250)
         print *, "Nombre de carto en temps = ", m
         print *, "Fin de la simulation"
         close(10); close(11); close(12); close(13); close(14); close(15)
+        close(16); close(17)
     end subroutine mise_a_jour_champs
   
 end module lesfonction  
