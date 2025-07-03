@@ -15,7 +15,7 @@ real(dp), parameter :: dt = 0.98d0 / (c* sqrt(1/(dx*dx) + 1/(dy*dy)))
 
 Nx = 500
 Ny = 500
-NT = 1200
+NT = 5000
  
 Nx_sm = (Nx - i1) 
 Ny_sm = (Ny - j1) 
