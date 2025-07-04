@@ -6,7 +6,7 @@ implicit none
 ! Déclaration des variables
 type(tableau) :: sm
 integer :: Nx, Ny, Nt, Nx_sm, Ny_sm
-!integer, parameter :: r = 3  ! facteur de raffinement du sous-maillage
+integer, parameter :: r = 3  ! facteur de raffinement du sous-maillage
 real(dp),dimension(:), allocatable :: Esrc
 real(dp), parameter :: dx = c / (fmax * 30.0d0)
 real(dp), parameter :: dy = c / (fmax * 30.0d0)
@@ -15,14 +15,15 @@ real(dp), parameter :: dt = 0.98d0 / (c* sqrt(1/(dx*dx) + 1/(dy*dy)))
 
 Nx = 500
 Ny = 500
-NT = 5000
+NT = 1200
  
-Nx_sm = (Nx - i1) 
-Ny_sm = (Ny - j1) 
+Nx_sm = (Nx - i1) *r
+Ny_sm = (Ny - j1) *r
 
-print*, Nx_sm,Ny_sm
+!print*, Nx_sm,Ny_sm
 
 
+ 
 ! Calcul de l'excitation
 call excitation_donde(Esrc, Nt, dt)
     ! Initialiser les champs

@@ -48,7 +48,7 @@ allocate(this%c_H(0:Nx, 0:Ny),  this%c_E(0:Nx, 0:Ny))
     real(dp), intent(in)                                       :: dx, dy, dt
     real(dp), intent(in)                                       :: Esrc(0:Nt-1)
     integer, parameter                                         :: r = 3
-    integer                                                    :: i, j, n,  m, k
+    integer                                                    :: i, j, n,  m
     real(dp)                                                   :: Hz2, Hz3, dx_sm, dy_sm, dt_prime
     real(dp)                                                   :: Haux_y, dx_prime, dy_prime, f_Hy, eaux_z, fez
     !real(dp)                                                   :: LCC, LIC1, LIC2, TCC1, TCC2, alpha 
@@ -61,7 +61,7 @@ allocate(this%c_H(0:Nx, 0:Ny),  this%c_E(0:Nx, 0:Ny))
   !  real(dp), dimension(0 : 1       , 0 : Nx)                  :: Hy0_n1, Hy0_n2                    
   !  real(dp), dimension(Ny - 1 : Ny , 0 : Nx)                  :: Hy_n1, Hy_n2
     real(dp)                                                   :: coef_mur1, coef_mur2, coef_mur3
-    real(dp)                                                   :: energy
+   ! real(dp)                                                   :: energy
 
 
         dx_sm        = dx/ r
@@ -123,7 +123,7 @@ Ezy_n1(Ny, :)     = fd%Ez(:, Ny)                ! temps n - 1 pas j = Ny
 do i = 1, Nx - 1
  if (i < i1 ) then
 do j = 1, Ny - 1
-!if (j < j1 .and. j > j2) then
+
 fd%Ez(i,j) = fd%Ez(i,j) + fd%c_E(i,j) * ((fd%Hy(i,j) - fd%Hy(i-1,j))/ dx  &
                         - (fd%Hx(i,j) - fd%Hx(i,j-1)) / dy)
 !end if
@@ -169,113 +169,92 @@ end do
 do i = 0, Nx - 1
  if (i < i1 ) then
 do j = 0, Ny - 1
-!if (j < j1) then
+
 fd%Hy(i,j) = fd%Hy(i,j) + fd%c_H(i,j) / dx * (fd%Ez(i+1,j) - fd%Ez(i,j))
- !end if 
+ 
  end do
     end if
 end do
 
-
+!sm
 do j = 0, Ny - 1
-
 Hz2 = 0.0_dp
 Hz3 = 0.0_dp
 
-Hz2 = fd%Hy(i1-1, j)  
+Hz2 = fd%Hy(i1, j)  
 Hz3 = fd%Hy(i1+1, j)
 Haux_y = (2.0/9.0)*Hz2  + (1.0/9.0)*Hz3
 end do
 
-
  ! Mise à jour dans le sous-maillage avec r sous-pas de temps
-        do k = 1, r
+  
 ! Ez raffiné
     do i = 1, Nx_sm - 1
-!if (i > i1) then
     do j = 1, Ny_sm- 1   
-    fd%ez_s(i,j) = fd%ez_s(i,j) + dt_prime/ (epsilon_0 * dx_sm) * (fd%hy_s(i,j) - &
-    fd%hy_s(i-1,j)) - dt_prime/ (epsilon_0 * dy_sm) * (fd%hx_s(i,j) - fd%hx_s(i,j-1))
-     end do
-    ! end if 
+    fd%ez_s(i,j) = fd%ez_s(i,j) + (dt_prime/ epsilon_0 ) * ((fd%hy_s(i,j) - &
+    fd%hy_s(i-1,j))/dx_sm - (fd%hx_s(i,j) - fd%hx_s(i,j-1))/dy_sm)
+    end do
     end do
     ! Source dans le sous-maillage
 fd%ez_s(350, Ny_sm/2) = fd%ez_s(350, Ny_sm/2) + Esrc(n)
 
 
 ! le champs electrique dans l'interface
- 
-do j = 1, Ny_sm - 1
-do i = 1, Nx_sm - 1
-fd%ez_s(i1,j) = fd%ez_s(i1,j) + (dt_prime/ epsilon_0 ) *&
-      ((fd%hy_s(i,j) - (f_Hy *Haux_y))/dx_prime - &
-        (fd%hx_s(i,j+1) - fd%hx_s(i,j))/(dy_sm))
+ do j = 1, Ny_sm - 1
+do i =  1, Nx_sm - 1
+fd%ez_s(0,j) = fd%ez_s(0,j) + (dt_prime/ epsilon_0 ) *((fd%hy_s(0,j) - (f_Hy *Haux_y))/dx_prime - &
+               (fd%hx_s(i,j) - fd%hx_s(i,j-1))/(dy_sm))
 end do
 end do 
 
+
  !le champs magnetique(Hx) à l'intérieur du sous-maillage
-do i = 0, Nx_sm - 1
-!if (i > i1) then
-do j = 0, Ny_sm - 1
+do i = 1, Nx_sm - 1
+do j = 1, Ny_sm - 1
     fd%hx_s(i,j) = fd%hx_s(i,j) - dt_prime/ (mu_0 * dy_sm) * (fd%ez_s(i,j+1) - fd%ez_s(i,j))
 end do
-!end if 
 end do
  
  ! le champs magnetique(Hy) à l'intérieur du sous-maillage
- do i = 0, Nx_sm - 1
-! if (i > i1) then
- do j = 0, Ny_sm - 1
+ do i = 1, Nx_sm - 1
+ do j = 1, Ny_sm - 1
  fd%hy_s(i,j) = fd%hy_s(i,j) + dt_prime/ (mu_0 * dx_sm) * (fd%ez_s(i+1,j) - fd%ez_s(i,j))
 end do
-!end if 
-end do
-
 end do
 
 
 do j = 1, Ny - 1
-   ! Interpolation depuis la grille fine (supposons que j_f = j * r)
-   eaux_z = compute_ez_aux(fd, i1 * r + 1, j * r)
-   ! Couplage conservatif CG <- FG
+   ! Interpolation depuis la grille fine (supposons que j_f = j * r) 
+   eaux_z = compute_ez_aux(fd, i1* r + 1 , j*r)
    fd%Hy(i1, j) = fd%Hy(i1, j) + dt / (mu_0 * dx) * (fez*eaux_z- fd%Ez(i1, j))
 end do
 
-! 
-! Calcul de l'énergie totale dans le domaine grossier
-energy = 0.0_dp
-do i = 0, Nx
-if (i < i1) then
-  do j = 0, Ny
-    energy = energy + 0.5_dp * (epsilon_0 * fd%Ez(i,j)**2 + mu_0 * (fd%Hx(i,j)**2 + fd%Hy(i,j)**2))
-  end do
-  end if
-end do
- write(18,*) n*dt, energy
 
 
-    write(10,*) n*dt, fd%Ez(350,250), fd%Ez(150,100), fd%Ez(250,00), fd%Ez(1,150)
-    write(11,*) n*dt, fd%Hx(100,100), fd%Hx(150,100), fd%Hx(50,100), fd%Hx(1,150)
-    write(12,*) n*dt, fd%Hy(100,100), fd%Hy(150,100), fd%Hy(50,100), fd%Hy(1,150)
-   write(16,*) n*dt_prime, fd%ez_s(250,250)
-    write(17,*) n*dt, fd%Ez(250,250)
+    write(10,*) n*dt,       fd%Ez(350,250), fd%Ez(150,100), fd%Ez(250,00), fd%Ez(100,150)
+    write(11,*) n*dt,       fd%Hx(100,100), fd%Hx(150,100), fd%Hx(50,100), fd%Hx(100,150)
+    write(12,*) n*dt,       fd%Hy(100,100), fd%Hy(150,100), fd%Hy(50,100), fd%Hy(100,150)
+    write(15,*) n*dt_prime, fd%ez_s(300,250)
+
    if (mod(n, 100) == 0 .and. n > 0) then
     m = m + 1
-
     ! on n’écrit que la valeur Ez(i,j), séparée par un espace
      do i = 1, Nx, 2
        write(14,*) (fd%Ez(i,j), j= 0, Ny, 2)
     end do
      write(14,*)
 
+     !valeur ez_s(i,j), séparée par un espace
      do i = 1, Nx_sm, 2
          write(13,*) (fd%ez_s(i,j), j= 1, Ny_sm, 2)
     end do
  write(13,*)
   end if   
 
-write(15,*) n*dt_prime, fd%ez_s(350,250)
-        end do
+!pour calculer l'erreur entre les deux champs
+ write(16,*) n*dt, fd%ez_s(300,250)
+ write(17,*) n*dt, fd%Ez(300,250)
+ end do
         print *, "Nombre de carto en temps = ", m
         print *, "Fin de la simulation"
         close(10); close(11); close(12); close(13); close(14); close(15)
@@ -295,23 +274,17 @@ function compute_ez_aux(fd, i_f, j_f) result(ez_aux)
     real(dp), dimension(-1:1, -1:1) :: w = reshape([ &
   1.0_dp, 2.0_dp, 1.0_dp, &
   2.0_dp, 4.0_dp, 2.0_dp, &
-  1.0_dp, 2.0_dp, 1.0_dp ], [3,3]) / 16.0_dp
-
+  1.0_dp, 2.0_dp, 1.0_dp ], [3,3]) 
     ! Moyenne pondérée 3x3 centrée sur (i_f, j_f)
     sum = 0.0_dp
-    do jj = -1, 1
-        do ii = -1, 1
+    do jj = -1, 1, 3
+        do ii = -1, 1,3
             sum = sum + w(ii, jj) * fd%ez_s(i_f+ii, j_f+jj)
         end do
     end do
 
     ez_aux = sum
-
-    
     ez_aux = sum / 3.0_dp
 end function compute_ez_aux
-
-
-
 
 end module lesfonction  

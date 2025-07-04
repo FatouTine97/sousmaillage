@@ -26,7 +26,7 @@ subroutine excitation_donde(Esrc, Nt, dt)
     open(unit=10, file='Esrc.dat', status='replace')
 
     do i = 0, Nt-1
-        write(10, *) i*dt, Esrc(i)
+    write(10, *) i*dt, Esrc(i)
     end do
     close(10)
 
