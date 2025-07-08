@@ -29,6 +29,7 @@ call excitation_donde(Esrc, Nt, dt)
     ! Initialiser les champs
 call sm%initialiser_champs(Nx, Ny, Nx_sm, Ny_sm, dt)
 call sm%mise_a_jour_champs(Nx, Ny, Nt, dx, dt, dy, Nx_sm, Ny_sm, Esrc)
+!call analyser_reflexion(fd, n, dt, Ez_ref, Ez_inc, "reflexion_log.dat")
 
 
     ! Libération de la mémoire

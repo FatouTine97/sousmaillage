@@ -61,7 +61,8 @@ allocate(this%c_H(0:Nx, 0:Ny),  this%c_E(0:Nx, 0:Ny))
   !  real(dp), dimension(0 : 1       , 0 : Nx)                  :: Hy0_n1, Hy0_n2                    
   !  real(dp), dimension(Ny - 1 : Ny , 0 : Nx)                  :: Hy_n1, Hy_n2
     real(dp)                                                   :: coef_mur1, coef_mur2, coef_mur3
-   ! real(dp)                                                   :: energy
+  !  real(dp)                                                   :: energy,energy_CG, energy_FG
+   ! real(dp), dimension(0:Nt-1)                                :: total_energy
 
 
         dx_sm        = dx/ r
@@ -72,18 +73,15 @@ allocate(this%c_H(0:Nx, 0:Ny),  this%c_E(0:Nx, 0:Ny))
         fez          = 1.0
         dt_prime     = dt/r
 
-
-open(unit=10, file="Ez_t.dat",    status = 'replace', action = 'write')
-open(unit=11, file="Hx_t.dat",    status = 'replace', action = 'write')
-open(unit=12, file="Hy_t.dat",    status = 'replace', action = 'write')
-open(unit=13, file="carto_t.dat", status = 'replace', action = 'write')
-open(unit=14, file="carto_t1.dat",status = 'replace', action = 'write')
-open(unit=15, file="ez_s.dat",    status = 'replace', action = 'write')
-
-! fichier de comparaison 
-
-open(unit=16, file="ez_s1.dat",   status = 'replace', action = 'write')
-open(unit=17, file="Ez_obs.dat",   status = 'replace', action = 'write')
+!ouverture des fichiers pour stockes les resultats
+open(unit=10, file="Ez_t.dat",        status = 'replace', action = 'write')
+open(unit=11, file="Hx_t.dat",        status = 'replace', action = 'write')
+open(unit=12, file="Hy_t.dat",        status = 'replace', action = 'write')
+open(unit=13, file="carto_t.dat",     status = 'replace', action = 'write')
+open(unit=14, file="carto_t1.dat",    status = 'replace', action = 'write')
+open(unit=15, file="ez_s.dat",        status = 'replace', action = 'write')
+open(unit=16, file="Energie_total.dat",   status = 'replace', action = 'write')
+open(unit=17, file="Ez_obs.dat",      status = 'replace', action = 'write')
  m = 0
 Ezx0_n1 = 0.d0 ;    Ezx0_n2 = 0.0d0 
 Ezx_n1  = 0.d0 ;    Ezx_n2  = 0.0d0
@@ -152,11 +150,11 @@ fd%Ez(: , Ny) =   - Ezy_n2(Ny - 1, :)                                         &
                   + coef_mur2 * (Ezy_n1(Ny, :) + Ezy_n1(Ny - 1,:))
 
              ! Source dans domaine grossier
-fd%Ez(Nx/5  , Ny/5) = fd%Ez(Nx/5 , Ny/5) + Esrc(n)
+fd%Ez(250,250) = fd%Ez(250, 250) + Esrc(n)
 
             ! Mise à jour Hx dans le domaine grossier       
 do i = 0, Nx - 1
- if (i < i1 ) then
+ if (i <= i1 ) then
 do j = 0, Ny - 1
 !if (j < j1 ) then
      fd%Hx(i,j) = fd%Hx(i,j) - fd%c_H(i,j) / dy * (fd%Ez(i,j+1) - fd%Ez(i,j))
@@ -169,69 +167,71 @@ end do
 do i = 0, Nx - 1
  if (i < i1 ) then
 do j = 0, Ny - 1
-
 fd%Hy(i,j) = fd%Hy(i,j) + fd%c_H(i,j) / dx * (fd%Ez(i+1,j) - fd%Ez(i,j))
  
  end do
     end if
 end do
 
-!sm
+
 do j = 0, Ny - 1
+do i = 0, Nx - 1
 Hz2 = 0.0_dp
 Hz3 = 0.0_dp
 
 Hz2 = fd%Hy(i1, j)  
 Hz3 = fd%Hy(i1+1, j)
-Haux_y = (2.0/9.0)*Hz2  + (1.0/9.0)*Hz3
+Haux_y = (2.0/9.0)*Hz2+ (1.0/9.0)*Hz3
 end do
+end do 
 
  ! Mise à jour dans le sous-maillage avec r sous-pas de temps
   
 ! Ez raffiné
-    do i = 1, Nx_sm - 1
-    do j = 1, Ny_sm- 1   
+do i = 1, Nx_sm - 1
+do j = 1, Ny_sm- 1   
     fd%ez_s(i,j) = fd%ez_s(i,j) + (dt_prime/ epsilon_0 ) * ((fd%hy_s(i,j) - &
     fd%hy_s(i-1,j))/dx_sm - (fd%hx_s(i,j) - fd%hx_s(i,j-1))/dy_sm)
-    end do
-    end do
+   end do
+  end do
     ! Source dans le sous-maillage
-fd%ez_s(350, Ny_sm/2) = fd%ez_s(350, Ny_sm/2) + Esrc(n)
+fd%ez_s(300, Ny_sm/2) = fd%ez_s(300, Ny_sm/2) + Esrc(n)
 
 
 ! le champs electrique dans l'interface
- do j = 1, Ny_sm - 1
+do j = 1, Ny_sm - 1
 do i =  1, Nx_sm - 1
-fd%ez_s(0,j) = fd%ez_s(0,j) + (dt_prime/ epsilon_0 ) *((fd%hy_s(0,j) - (f_Hy *Haux_y))/dx_prime - &
+fd%ez_s(0,j) = fd%ez_s(0,j) + (dt/ epsilon_0 ) *((fd%hy_s(0,j) - (f_Hy *Haux_y))/dx_prime - &
                (fd%hx_s(i,j) - fd%hx_s(i,j-1))/(dy_sm))
 end do
 end do 
 
 
  !le champs magnetique(Hx) à l'intérieur du sous-maillage
-do i = 1, Nx_sm - 1
-do j = 1, Ny_sm - 1
+do i = 0, Nx_sm - 1
+do j = 0, Ny_sm - 1
     fd%hx_s(i,j) = fd%hx_s(i,j) - dt_prime/ (mu_0 * dy_sm) * (fd%ez_s(i,j+1) - fd%ez_s(i,j))
 end do
 end do
  
  ! le champs magnetique(Hy) à l'intérieur du sous-maillage
- do i = 1, Nx_sm - 1
- do j = 1, Ny_sm - 1
+ do i = 0, Nx_sm - 1
+ do j = 0, Ny_sm - 1
  fd%hy_s(i,j) = fd%hy_s(i,j) + dt_prime/ (mu_0 * dx_sm) * (fd%ez_s(i+1,j) - fd%ez_s(i,j))
 end do
 end do
 
+! Interpolation depuis la grille fine 
 
-do j = 1, Ny - 1
-   ! Interpolation depuis la grille fine (supposons que j_f = j * r) 
+   do i = 1, Nx - 1
+   do j = 1, Ny - 1
    eaux_z = compute_ez_aux(fd, i1* r + 1 , j*r)
-   fd%Hy(i1, j) = fd%Hy(i1, j) + dt / (mu_0 * dx) * (fez*eaux_z- fd%Ez(i1, j))
+   fd%Hy(i1, j) = fd%Hy(i1, j) + dt / (mu_0 * dx) * (fez*eaux_z- fd%Ez(i, j))
+   end do 
 end do
 
 
-
-    write(10,*) n*dt,       fd%Ez(350,250), fd%Ez(150,100), fd%Ez(250,00), fd%Ez(100,150)
+    write(10,*) n*dt,       fd%Ez(300,250), fd%Ez(250,250), fd%Ez(150,250), fd%Ez(150,150)
     write(11,*) n*dt,       fd%Hx(100,100), fd%Hx(150,100), fd%Hx(50,100), fd%Hx(100,150)
     write(12,*) n*dt,       fd%Hy(100,100), fd%Hy(150,100), fd%Hy(50,100), fd%Hy(100,150)
     write(15,*) n*dt_prime, fd%ez_s(300,250)
@@ -252,7 +252,7 @@ end do
   end if   
 
 !pour calculer l'erreur entre les deux champs
- write(16,*) n*dt, fd%ez_s(300,250)
+ !write(16,*) n*dt , total_energy(n) 
  write(17,*) n*dt, fd%Ez(300,250)
  end do
         print *, "Nombre de carto en temps = ", m
@@ -261,6 +261,42 @@ end do
         close(16); close(17)
     end subroutine mise_a_jour_champs
   
+! analyse de reflexion 
+subroutine analyser_reflexion(fd, n, dt, Ez_ref, Ez_inc, fichier)
+    implicit none
+    type(tableau), intent(in) :: fd
+    integer, intent(in) :: n
+    real(dp), intent(in) :: dt
+    real(dp), intent(inout) :: Ez_ref, Ez_inc
+    character(len=*), intent(in) :: fichier
+    real(dp) :: Ez_obs
+    integer, save :: n_incident = -1, n_reflected = -1
+    logical, save :: done = .false.
+
+    ! Exemple : point d'observation
+    Ez_obs = fd%Ez(300, 250)
+
+    ! Détection automatique de l’incident / réfléchi (simple seuil)
+    if (.not. done) then
+        if (Ez_obs > Ez_inc) then
+            Ez_inc = Ez_obs
+            n_incident = n
+        else if (n > n_incident + 100 .and. Ez_obs > Ez_ref) then
+            Ez_ref = Ez_obs
+            n_reflected = n
+            done = .true.
+        end if
+    end if
+
+    if (done .and. n == n_reflected + 1) then
+        open(unit=99, file=fichier, status="unknown")
+        write(99,*) "Incident:", n_incident * dt, "s, Ez =", Ez_inc
+        write(99,*) "Réfléchi:", n_reflected * dt, "s, Ez =", Ez_ref
+        write(99,*) "Coefficient R =", Ez_ref / Ez_inc
+        close(99)
+    end if
+end subroutine analyser_reflexion
+
 
   ! Interpolation conservatrice pour Ez aux interfaces FG → CG
 function compute_ez_aux(fd, i_f, j_f) result(ez_aux)
@@ -277,8 +313,8 @@ function compute_ez_aux(fd, i_f, j_f) result(ez_aux)
   1.0_dp, 2.0_dp, 1.0_dp ], [3,3]) 
     ! Moyenne pondérée 3x3 centrée sur (i_f, j_f)
     sum = 0.0_dp
-    do jj = -1, 1, 3
-        do ii = -1, 1,3
+    do jj = -1, 1
+        do ii = -1, 1
             sum = sum + w(ii, jj) * fd%ez_s(i_f+ii, j_f+jj)
         end do
     end do
