@@ -4,32 +4,47 @@ use lexcitation_donde
  implicit none
     type :: tableau
         real(dp), dimension(:,:), allocatable :: Hx, Ez, Hy
+        real(dp), dimension(:,:), allocatable :: Hx_r1, Ez_r1, Hy_r1
+        real(dp), dimension(:,:), allocatable :: Ez_r2, Hx_r2, Hy_r2
         real(dp), dimension(:,:), allocatable :: hx_s, ez_s, hy_s
         real(dp), dimension(:,:), allocatable :: c_E, c_H
     contains
         procedure :: initialiser_champs
         procedure :: mise_a_jour_champs
+      !  procedure :: reference1
     end type tableau
 
 contains
 
     ! Sous-routine pour initialiser les champs
-    subroutine initialiser_champs(this, Nx, Ny, Nx_sm, Ny_sm, dt)
+    subroutine initialiser_champs(this, Nx, Ny, Nx_sm, Ny_sm, Nx_r, Ny_r, dt)
         use lesconstantes_numeriques
         implicit none
         class(tableau), intent(inout) :: this
-        integer, intent(in) :: Nx, Ny, Nx_sm, Ny_sm
+        integer, intent(in) :: Nx, Ny, Nx_sm, Ny_sm, Nx_r, Ny_r
         real(dp), intent(in) :: dt
 
         allocate(this%hx_s(0:Nx_sm, 0:Ny_sm), this%ez_s(0:Nx_sm, 0:Ny_sm), this%hy_s(0:Nx_sm, 0:Ny_sm))
         this%hx_s = 0.0_dp
         this%ez_s = 0.0_dp
         this%hy_s = 0.0_dp
-
+!allocation des champs pour les gros maillage
        allocate( this%Ez(0:Nx, 0:Ny), this%Hx(0:Nx, 0:Ny), this%Hy(0:Nx, 0:Ny))
         this%Ez = 0.0_dp
         this%Hy = 0.0_dp
         this%Hx = 0.0_dp
+
+!allocation des champs pour le reference 1
+        allocate(this%Hx_r1(0:Nx, 0:Ny), this%Ez_r1(0:Nx, 0:Ny), this%Hy_r1(0:Nx, 0:Ny)) 
+        this%Ez_r1 = 0.0_dp  
+        this%Hy_r1 = 0.0_dp
+        this%Hx_r1 = 0.0_dp
+
+! allocation des champs pour le reference 2
+        allocate(this%Ez_r2(0:Nx_r, 0:Ny_r), this%Hx_r2(0:Nx_r, 0:Ny_r), this%Hy_r2(0:Nx_r, 0:Ny_r))
+        this%Ez_r2 = 0.0_dp
+        this%Hy_r2 = 0.0_dp
+        this%Hx_r2 = 0.0_dp
 
         !coefficients pour les champs
 allocate(this%c_H(0:Nx, 0:Ny),  this%c_E(0:Nx, 0:Ny))
@@ -82,9 +97,7 @@ end subroutine couplage_CG_vers_FG
   !  real(dp), dimension(0 : 1       , 0 : Nx)                  :: Hy0_n1, Hy0_n2                    
   !  real(dp), dimension(Ny - 1 : Ny , 0 : Nx)                  :: Hy_n1, Hy_n2
     real(dp)                                                   :: coef_mur1, coef_mur2, coef_mur3
-   real(dp)                                                   :: energy,energy_CG, energy_FG
-   real(dp), dimension(0:Nt-1)                                :: total_energy
-
+   
 
         dx_sm        = dx/ r
         dy_sm        = dy/ r
@@ -99,10 +112,8 @@ open(unit=10, file="Ez_t.dat",        status = 'replace', action = 'write')
 open(unit=11, file="Hx_t.dat",        status = 'replace', action = 'write')
 open(unit=12, file="Hy_t.dat",        status = 'replace', action = 'write')
 open(unit=13, file="carto_t.dat",     status = 'replace', action = 'write')
- open(unit=14, file="carto_complet.dat", position='append')
+open(unit=14, file="carto_t1.dat",    status = 'replace', action = 'write')
 open(unit=15, file="ez_s.dat",        status = 'replace', action = 'write')
-open(unit=16, file="ez_obs.dat",   status = 'replace', action = 'write')
-open(unit=17, file="Ez_obs.dat",      status = 'replace', action = 'write')
  m = 0
 Ezx0_n1 = 0.d0 ;    Ezx0_n2 = 0.0d0 
 Ezx_n1  = 0.d0 ;    Ezx_n2  = 0.0d0
@@ -259,7 +270,7 @@ end do
     write(10,*) n*dt,       fd%Ez(350,250), fd%Ez(250,250), fd%Ez(150,250), fd%Ez(450,150)
     write(11,*) n*dt,       fd%Hx(250,250), fd%Hx(150,100), fd%Hx(50,100), fd%Hx(100,150)
     write(12,*) n*dt,       fd%Hy(250,250), fd%Hy(250,250), fd%Hy(50,100), fd%Hy(100,150)
-    write(15,*) n*dt_prime, fd%ez_s(300,750), fd%ez_s(150,250), fd%ez_s(50,600)
+    write(15,*) n*dt_prime, fd%ez_s(300,750), fd%ez_s(450,750), fd%ez_s(500,600)
 
    if (mod(n, 100) == 0 .and. n > 0) then
     m = m + 1
@@ -278,9 +289,6 @@ end do
  write(13,*)
   end if   
 
-!pour calculer l'erreur entre les deux champs
- write(16,*) n*dt_prime, fd%ez_s(0,750)
- write(17,*) n*dt_prime, fd%Ez(300,250)
  end do
         print *, "Nombre de carto en temps = ", m
         print *, "Fin de la simulation"
@@ -289,151 +297,6 @@ end do
    
  end subroutine mise_a_jour_champs
   
- ! Subroutine pour la mise à jour des champs
-    subroutine reference1(fd, Nx, Ny, Nt, dx, dt, dy, Esrc)
-        use lesconstantes_numeriques
-        implicit none
-    class(tableau), intent(inout)                              :: fd
-    integer, intent(in)                                        :: Nx, Ny, Nt
-    real(dp), intent(in)                                       :: dx, dy, dt
-    real(dp), intent(in)                                       :: Esrc(0:Nt-1)
-    integer, parameter                                         :: r = 3
-    integer                                                    :: i, j, n,  m 
-    real(dp), dimension(0 : 1       , 0 : Ny)                  :: Ezx0_n1 , Ezx0_n2                    
-    real(dp), dimension(Nx - 1 : Nx , 0 : Ny)                  :: Ezx_n1 , Ezx_n2                 
-    real(dp), dimension(0 : 1       , 0 : Nx)                  :: Ezy0_n1 , Ezy0_n2                     
-    real(dp), dimension(Ny - 1 : Ny , 0 : Nx)                  :: Ezy_n1 , Ezy_n2
-    real(dp)                                                   :: coef_mur1, coef_mur2, coef_mur3
-   
-
-        dx_sm        = dx/ r
-        dy_sm        = dy/ r
-        dx_prime     = 0.5*dx + 0.5*dx_sm
-        dy_prime     = 0.5*dy + 0.5*dy_sm
-        f_Hy         = dy/dy_sm
-        fez          = 1.0
-        dt_prime     = dt/r
-
-!ouverture des fichiers pour stockes les resultats
-open(unit=10, file="Ez_t1.dat",        status = 'replace', action = 'write')
-open(unit=11, file="Hx_t1.dat",        status = 'replace', action = 'write')
-open(unit=12, file="Hy_t1.dat",        status = 'replace', action = 'write')
-open(unit=13, file="carto_t1.dat",     status = 'replace', action = 'write')
-
- m = 0
-Ezx0_n1 = 0.d0 ;    Ezx0_n2 = 0.0d0 
-Ezx_n1  = 0.d0 ;    Ezx_n2  = 0.0d0
-Ezy0_n1 = 0.d0 ;    Ezy0_n2 = 0.0d0
-Ezy_n1  = 0.d0 ;    Ezy_n2  = 0.0d0
-
-
-coef_mur1 = (c * dt - dx) / (c * dt + dx)
-coef_mur2 = (2.d0 * dx) / (c * dt + dx)
-coef_mur3 = (c * dt)**2 / ( 2 * dx * ( c * dt + dx ) )
-
-do n = 0, Nt - 1
-if (mod(n, 100) == 0) print *, "Itération temporelle n°", n
-! Condition de bord x = 0
-Ezx0_n2        = Ezx0_n1                        ! temps n - 2 pas i = 0 et i = 1
-Ezx0_n1(0 , :) = fd%Ez(0,:)                     ! temps n - 1 pas i = 0
-Ezx0_n1(1 , :) = fd%Ez(1,:)                     ! temps n - 1 pas i = 1
-
-            ! Condition de bord x = Nx
-Ezx_n2             = Ezx_n1                     ! temps n - 2 pas i = Nx - 1 et i = Nx
-Ezx_n1(Nx - 1 , :) = fd%Ez(Nx - 1 , :)          ! temps n - 1 pas i = Nx - 1
-Ezx_n1(Nx , :)     = fd%Ez(Nx , :)              ! temps n - 1 pas i = Nx
-
-            ! Condition de bord y = 0
-Ezy0_n2       = Ezy0_n1                         ! temps n - 2 pas j = 0 et j = 1
-Ezy0_n1(0, :) = fd%Ez(:, 0)                     ! temps n - 1 pas j = 0
-Ezy0_n1(1, :) = fd%Ez(:, 1)                     ! temps n - 1 pas j = 1
-
-            ! Condition de bord y = Ny
-Ezy_n2            = Ezy_n1                      ! temps n - 2 pas j = Ny - 1 et j = Ny
-Ezy_n1(Ny - 1, :) = fd%Ez(:, Ny - 1)            ! temps n - 1 pas j = Ny - 1
-Ezy_n1(Ny, :)     = fd%Ez(:, Ny)                ! temps n - 1 pas j = Ny
-            
-do i = 1, Nx - 1
-do j = 1, Ny - 1
-fd%Ez(i,j) = fd%Ez(i,j) + fd%c_E(i,j) * ((fd%Hy(i,j) - fd%Hy(i-1,j))/ dx  &
-                        - (fd%Hx(i,j) - fd%Hx(i,j-1)) / dy)
-
-end do
-end do
- 
-            !! Condition aux bord (Mur absorbant) x = 0
-fd%Ez(0 , :)  =  - Ezx0_n2(1, :)                                             &
-                 + coef_mur1 * (fd%Ez(1, :) + Ezx0_n2(0, :))                 &         ! n2 -> le temps n - 1    n1 -> n
-                  + coef_mur2 * (Ezx0_n1(0, :) + Ezx0_n1(1, :))
-
-            ! Condition aux bord (Mur absorbant) x = Nx
-fd%Ez(Nx , :) =    - Ezx_n2(Nx - 1, :)                                         &
-                  + coef_mur1 * (fd%Ez(Nx - 1, :) + Ezx_n2(Nx, :))            &
-                  + coef_mur2 * (Ezx_n1(Nx, :) + Ezx_n1(Nx - 1, :))
-
-            ! Condition aux bord (Mur absorbant) y = 0
-fd%Ez(: , 0)  =   - Ezy0_n2(1, :)                                             &
-                + coef_mur1 * (fd%Ez(:, 1) + Ezy0_n2(0, :))                      &
-                + coef_mur2 * (Ezy0_n1(0, :) + Ezy0_n1(1, :))
-
-!fd%Ez(i1:Nx, 0) = 0.0_dp 
-
-            ! Condition aux bord (Mur absorbant) y = Ny
-fd%Ez(: , Ny) =   - Ezy_n2(Ny - 1, :)                                         &
-                  + coef_mur1 * (fd%Ez(:, Ny - 1) + Ezy_n2(Ny, :))               &
-                  + coef_mur2 * (Ezy_n1(Ny, :) + Ezy_n1(Ny - 1,:))
-
-
-
-             ! Source dans domaine grossier
-fd%Ez(40,400) = fd%Ez(400, 400) + Esrc(n)
-
-            ! Mise à jour Hx dans le domaine grossier       
-do i = 1, Nx - 1
-do j = 1, Ny - 1
-     fd%Hx(i,j) = fd%Hx(i,j) - fd%c_H(i,j) / dy * (fd%Ez(i,j+1) - fd%Ez(i,j))
-  
-end do
-end do
-
-            ! Mise à jour  Hy dans le domaine grossier
-do i = 1, Nx - 1
-do j = 1, Ny - 1
-fd%Hy(i,j) = fd%Hy(i,j) + fd%c_H(i,j) / dx * (fd%Ez(i+1,j) - fd%Ez(i,j))
- end do
-end do
-
-
-
-    write(10,*) n*dt,       fd%Ez(350,250), fd%Ez(250,250), fd%Ez(150,250), fd%Ez(250,150)
-    write(11,*) n*dt,       fd%Hx(100,100), fd%Hx(150,100), fd%Hx(50,100), fd%Hx(100,150)
-    write(12,*) n*dt,       fd%Hy(100,100), fd%Hy(150,100), fd%Hy(50,100), fd%Hy(100,150)
-
-
-   if (mod(n, 100) == 0 .and. n > 0) then
-    m = m + 1
-
-    write(14,*) ! Ligne vide pour séparer les temps
-    ! on n’écrit que la valeur Ez(i,j), séparée par un espace
-    do i = 1, Nx, 2
-       write(14,*) (fd%Ez(i,j), j= 0, Ny, 2)
-    end do
-     write(14,*)
-
-     !valeur ez_s(i,j), séparée par un espace
-     do i = 1, Nx_sm, 2
-         write(13,*) (fd%ez_s(i,j), j= 1, Ny_sm, 2)
-    end do
- write(13,*)
-  end if   
-
- end do
-        print *, "Nombre de carto en temps = ", m
-        print *, "Fin de la simulation"
-        close(10); close(11); close(12); close(13); close(14); close(15)
-        close(16); close(17)
-   
- end subroutine mise_a_jour_champs
 
 
   ! Interpolation conservatrice pour Ez aux interfaces FG → CG
@@ -441,7 +304,7 @@ function compute_ez_aux(fd, i_f, j_f) result(ez_aux)
     use lesconstantes_numeriques
     implicit none
     type(tableau), intent(in) :: fd
-    integer, intent(in)       :: i_f, j_f  ! Indices dans la grille fine (FG)
+    integer, intent(in)       :: i_f, j_f  ! Indices dans l; close(14)a grille fine (FG)
     real(dp)                  :: ez_aux
     real(dp) :: sum
     integer :: ii, jj
