@@ -66,7 +66,6 @@ allocate(this%c_H(0:Nx, 0:Ny),  this%c_E(0:Nx, 0:Ny))
     integer                                                    :: i, j, n
     real(dp)                                                   :: Hz2, Hz3, dx_sm, dy_sm, dt_prime
     real(dp)                                                   :: Haux_y, dx_prime, dy_prime, f_Hy, fez
-    !real(dp)                                                   :: LCC, LIC1, LIC2, TCC1, TCC2, alpha 
     real(dp), dimension(0 : 1       , 0 : Ny)                  :: Ezx0_n1 , Ezx0_n2                    
     real(dp), dimension(Nx - 1 : Nx , 0 : Ny)                  :: Ezx_n1 , Ezx_n2                 
     real(dp), dimension(0 : 1       , 0 : Nx)                  :: Ezy0_n1 , Ezy0_n2                     
@@ -76,7 +75,7 @@ allocate(this%c_H(0:Nx, 0:Ny),  this%c_E(0:Nx, 0:Ny))
   !  real(dp), dimension(0 : 1       , 0 : Nx)                  :: Hy0_n1, Hy0_n2                    
   !  real(dp), dimension(Ny - 1 : Ny , 0 : Nx)                  :: Hy_n1, Hy_n2
     real(dp)                                                   :: coef_mur1, coef_mur2, coef_mur3
-   real, allocatable :: eaux_z(:)
+   real(dp), allocatable :: eaux_z(:)
    allocate(eaux_z(Ny_sm))
 
         dx_sm        = dx/ r
@@ -125,7 +124,7 @@ Ezy_n1(Ny, :)     = fd%Ez(:, Ny)                ! temps n - 1 pas j = Ny
 
             
 do i = 1, Nx - 1
- if (i < i1 ) then
+ if (i < i1-1 ) then
 do j = 1, Ny - 1
 fd%Ez(i,j) = fd%Ez(i,j) + fd%c_E(i,j) * ((fd%Hy(i,j) - fd%Hy(i-1,j))/ dx  &
                         - (fd%Hx(i,j) - fd%Hx(i,j-1)) / dy)
@@ -133,8 +132,9 @@ fd%Ez(i,j) = fd%Ez(i,j) + fd%c_E(i,j) * ((fd%Hy(i,j) - fd%Hy(i-1,j))/ dx  &
 end do
 end if
 end do
- fd%Ez(0,:) = 0.0_dp
- fd%Ez(Nx,:) = 0.0_dp  
+
+fd%Ez(0,:) = 0.0_dp
+fd%Ez(Nx,:) = 0.0_dp  
 fd%Ez(:,0) = 0.0_dp
 fd%Ez(:,Ny) = 0.0_dp
 
@@ -143,121 +143,102 @@ fd%Ez(250,250) = fd%Ez(250, 250) + Esrc(n)
 
             ! Mise à jour Hx dans le domaine grossier       
 do i = 0, Nx - 1
- if (i < i1 ) then
+ if (i < i1-1 ) then
 do j = 0, Ny - 1
-!if (j < j1 ) then
      fd%Hx(i,j) = fd%Hx(i,j) - fd%c_H(i,j) / dy * (fd%Ez(i,j+1) - fd%Ez(i,j))
-    ! end if 
+
 end do
 end if
 end do
 
             ! Mise à jour  Hy dans le domaine grossier
 do i = 0, Nx - 1
- if (i < i1 ) then
+ if (i < i1-1 ) then
 do j = 0, Ny - 1
 fd%Hy(i,j) = fd%Hy(i,j) + fd%c_H(i,j) / dx * (fd%Ez(i+1,j) - fd%Ez(i,j))
- 
  end do
     end if
 end do
 
 
+
+do j = 0, Ny_sm - 1
+   Hz2 = fd%Hy(i1-1, j)
+   Hz3 = fd%Hy(i1-1, j-1)
+   Haux_y = (1.0_dp/3.0_dp)*Hz2 + (2.0_dp/3.0_dp)*Hz3
+
+   fd%ez_s(0,j) = fd%ez_s(0,j) + (dt_prime/ epsilon_0) * ( &
+        (fd%hy_s(0,j) - f_Hy * Haux_y)/dx_prime - &
+        (fd%hx_s(0,j) - fd%hx_s(0,j-1))/dy_sm )
+end do
+
+
 ! Ez raffiné
 do i = 1, Nx_sm - 1
-do j = 1, Ny_sm- 1   
+do j = 1, Ny_sm- 1
     fd%ez_s(i,j) = fd%ez_s(i,j) + (dt_prime/ epsilon_0 ) * ((fd%hy_s(i,j) - &
     fd%hy_s(i-1,j))/dx_sm - (fd%hx_s(i,j) - fd%hx_s(i,j-1))/dy_sm)
    end do
   end do
-   
+ 
+ 
 
  !le champs magnetique(Hx) à l'intérieur du sous-maillage
 do i = 0, Nx_sm - 1
-do j = 0, Ny_sm - 1
-    fd%hx_s(i,j) = fd%hx_s(i,j) - dt_prime/ (mu_0 * dy_sm) * (fd%ez_s(i,j+1) - fd%ez_s(i,j))
-end do
-end do
- 
- ! le champs magnetique(Hy) à l'intérieur du sous-maillage
- do i = 1, Nx_sm - 1
- do j = 0, Ny_sm - 1
- fd%hy_s(i,j) = fd%hy_s(i,j) + dt_prime/ (mu_0 * dx_sm) * (fd%ez_s(i+1,j) - fd%ez_s(i,j))
-end do
-end do
-
-
-! Interpolation depuis la grille fine 
-!do j = 0, Ny_sm - 1
-
-     !eaux_z = compute_ez_aux(fd, 0*r+1 , j)
-   !  end do 
-do j = 0, Ny_sm - 1
- eaux_z(j) = (1/3)*(1.0_dp/30_dp*  fd%ez(0-2,j) + 2.0_dp/30_dp*fd%ez(0-1, j) + fd%ez(0,j) + &
-  2.0_dp/30_dp* fd%ez(0+1, j) + 1.0_dp/30_dp* fd%ez(0+2, j) &
-         + 1.0_dp/30_dp* fd%ez(0, j-2) + 2.0_dp/30_dp* fd%ez(0, j-1) + 2.0_dp/30_dp* fd%ez(0, j+1) &
-         + 1.0_dp/30_dp* fd%ez(0, j+2))
- enddo
-
-do i = 0, Nx - 1
-if (i < i1) then
-  do j = 0, Ny - 1
-   fd%Hy(i1, j) = fd%Hy(i1, j) + (fd%c_H(i,j)/dx) * (fez * eaux_z(j) - fd%Ez(i, j))
+  do j = 0, Ny_sm - 1
+     fd%hx_s(i,j) = fd%hx_s(i,j) - (dt_prime/mu_0) * &
+                    (fd%ez_s(i,j+1) - fd%ez_s(i,j)) / dy_sm
   end do
-  end if 
+end do
+
+do i = 0, Nx_sm - 1
+  do j = 0, Ny_sm - 1
+     fd%hy_s(i,j) = fd%hy_s(i,j) + (dt_prime/mu_0) * &
+                    (fd%ez_s(i+1,j) - fd%ez_s(i,j)) / dx_sm
+  end do
+end do
+
+do j = 1, Ny_sm - 1
+   eaux_z(j) = compute_ez_aux(fd, 0, j)
 end do
 
 
-
-! le champs electrique dans l'interface
-do j = 0, Ny - 1
-Hz2 = 0.0_dp
-Hz3 = 0.0_dp
-Hz2 = fd%Hy(i1-2, j)  
-Hz3 = fd%Hy(i1-1, j)
-Haux_y = (2.0*Hz2 /9.0)+ (1.0*Hz3 /9.0)
-end do
-
-!print *, "Hz2 = ", Hz2, "Hz3 = ", Hz3
-
-do i =  0, Nx_sm - 1
-do j =  0, Ny_sm - 1
-fd%ez_s(0,j) = fd%ez_s(0,j) + (dt_prime/ epsilon_0 ) *((fd%hy_s(0,j) - (f_Hy *Haux_y))/dx_prime - &
-              (fd%hx_s(i,j) - fd%hx_s(i,j-1))/dy_sm)
-       !       print*, "ez_s(0,j) = ", fd%ez_s(0,j)
-end do
+do j = 1, Ny_sm - 1
+!do i = 1, i1 - 2
+  fd%Hy(i1-1, j) = fd%Hy(i1-1, j) + (fd%c_H(i1-1,j)/dx) * (fez * eaux_z(j) - fd%Ez(i1-1, j))
+!end do
 end do 
 
 
  end subroutine mise_a_jour_champs
   
 
-
- function compute_ez_aux(fd, i_f, j_f) result(ez_aux)
+ real(dp) function compute_ez_aux(fd, i_f, j_f) result(ez_aux)
     use lesconstantes_numeriques
     implicit none
     type(tableau), intent(in) :: fd
     integer, intent(in)       :: i_f, j_f
-    real(dp)                  :: ez_aux
-    real(dp) :: sum
     integer :: ii, jj
+    real(dp) :: sum
     real(dp), dimension(-1:1, -1:1) :: w
 
     ! Pondération conservatrice 3x3, somme = 1
     w = reshape([ &
-        1.0_dp, 2.0_dp, 1.0_dp, &
-        2.0_dp, 1.0_dp, 2.0_dp, &
-        1.0_dp, 2.0_dp, 1.0_dp ], [3,3]) / 16.0_dp
+        1.0_dp/16.0_dp, 2.0_dp/16.0_dp, 1.0_dp/16.0_dp, &
+        2.0_dp/16.0_dp, 4.0_dp/16.0_dp, 2.0_dp/16.0_dp, &
+        1.0_dp/16.0_dp, 2.0_dp/16.0_dp, 1.0_dp/16.0_dp], &
+        [3,3])
 
     sum = 0.0_dp
-    do jj = -1, 1
-        do ii = -1, 1
-            sum = sum + w(ii,jj) * fd%ez_s(i_f + ii, j_f + jj)
+    do ii = -1, 1
+        do jj = -1, 1
+            sum = sum + w(ii+2, jj+2) * fd%ez_s(i_f , j_f + jj)
         end do
     end do
 
     ez_aux = sum
 end function compute_ez_aux
+
 
 
 end module lesfonction  
