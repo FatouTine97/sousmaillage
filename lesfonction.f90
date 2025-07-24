@@ -55,29 +55,19 @@ allocate(this%c_H(0:Nx, 0:Ny),  this%c_E(0:Nx, 0:Ny))
 
 
     ! Subroutine pour la mise à jour des champs
-    subroutine mise_a_jour_champs(fd, Nx, Ny, Nt, n,dx, dt, dy, Nx_sm, Ny_sm, Esrc)
+    subroutine mise_a_jour_champs(fd, Nx, Ny, Nt, n, dx, dt, dy, Nx_sm, Ny_sm, Esrc)
         use lesconstantes_numeriques
         implicit none
     class(tableau), intent(inout)                              :: fd
-    integer, intent(in)                                        :: Nx, Ny, Nt, Nx_sm, Ny_sm
+    integer, intent(in)                                        :: Nx, Ny, Nt, Nx_sm, Ny_sm, n
     real(dp), intent(in)                                       :: dx, dy, dt
     real(dp), intent(in)                                       :: Esrc(0:Nt-1)
     integer, parameter                                         :: r = 3
-    integer                                                    :: i, j, n
+    integer                                                    :: i, j,  i_0, i_1
     real(dp)                                                   :: Hz2, Hz3, dx_sm, dy_sm, dt_prime
     real(dp)                                                   :: Haux_y, dx_prime, dy_prime, f_Hy, fez
-    real(dp), dimension(0 : 1       , 0 : Ny)                  :: Ezx0_n1 , Ezx0_n2                    
-    real(dp), dimension(Nx - 1 : Nx , 0 : Ny)                  :: Ezx_n1 , Ezx_n2                 
-    real(dp), dimension(0 : 1       , 0 : Nx)                  :: Ezy0_n1 , Ezy0_n2                     
-    real(dp), dimension(Ny - 1 : Ny , 0 : Nx)                  :: Ezy_n1 , Ezy_n2
-   ! real(dp), dimension(0 : 1       , 0 : Ny)                  :: Hx0_n1, Hx0_n2                    
-   ! real(dp), dimension(Nx - 1 : Nx , 0 : Ny)                  :: Hx_n1, Hx_n2
-  !  real(dp), dimension(0 : 1       , 0 : Nx)                  :: Hy0_n1, Hy0_n2                    
-  !  real(dp), dimension(Ny - 1 : Ny , 0 : Nx)                  :: Hy_n1, Hy_n2
-    real(dp)                                                   :: coef_mur1, coef_mur2, coef_mur3
-   real(dp), allocatable :: eaux_z(:)
-   allocate(eaux_z(Ny_sm))
-
+   real(dp) :: eaux_z
+real(dp) :: coefMur
         dx_sm        = dx/ r
         dy_sm        = dy/ r
         dx_prime     = 0.5*dx + 0.5*dx_sm
@@ -87,44 +77,13 @@ allocate(this%c_H(0:Nx, 0:Ny),  this%c_E(0:Nx, 0:Ny))
         dt_prime     = dt/r
 
 
+i_0 = Nx/2
+i_1 = Ny/2
 
-Ezx0_n1 = 0.d0 ;    Ezx0_n2 = 0.0d0 
-Ezx_n1  = 0.d0 ;    Ezx_n2  = 0.0d0
-Ezy0_n1 = 0.d0 ;    Ezy0_n2 = 0.0d0
-Ezy_n1  = 0.d0 ;    Ezy_n2  = 0.0d0
-!Hx0_n1  = 0.d0 ;    Hx0_n2  = 0.0d0
-!Hx_n1   = 0.d0 ;    Hx_n2   = 0.0d0
-!Hy0_n1  = 0.d0 ;    Hy0_n1   = 0.0d0
-!Hy_n1   = 0.d0 ;    Hy_n2   = 0.0d0
-
-coef_mur1 = (c * dt - dx) / (c * dt + dx)
-coef_mur2 = (2.d0 * dx) / (c * dt + dx)
-coef_mur3 = (c * dt)**2 / ( 2 * dx * ( c * dt + dx ) )
-
-
-! Condition de bord x = 0
-Ezx0_n2        = Ezx0_n1                        ! temps n - 2 pas i = 0 et i = 1
-Ezx0_n1(0 , :) = fd%Ez(0,:)                     ! temps n - 1 pas i = 0
-Ezx0_n1(1 , :) = fd%Ez(1,:)                     ! temps n - 1 pas i = 1
-
-            ! Condition de bord x = Nx
-Ezx_n2             = Ezx_n1                     ! temps n - 2 pas i = Nx - 1 et i = Nx
-Ezx_n1(Nx - 1 , :) = fd%Ez(Nx - 1 , :)          ! temps n - 1 pas i = Nx - 1
-Ezx_n1(Nx , :)     = fd%Ez(Nx , :)              ! temps n - 1 pas i = Nx
-
-            ! Condition de bord y = 0
-Ezy0_n2       = Ezy0_n1                         ! temps n - 2 pas j = 0 et j = 1
-Ezy0_n1(0, :) = fd%Ez(:, 0)                     ! temps n - 1 pas j = 0
-Ezy0_n1(1, :) = fd%Ez(:, 1)                     ! temps n - 1 pas j = 1
-
-            ! Condition de bord y = Ny
-Ezy_n2            = Ezy_n1                      ! temps n - 2 pas j = Ny - 1 et j = Ny
-Ezy_n1(Ny - 1, :) = fd%Ez(:, Ny - 1)            ! temps n - 1 pas j = Ny - 1
-Ezy_n1(Ny, :)     = fd%Ez(:, Ny)                ! temps n - 1 pas j = Ny
-
-            
+         coefMur = (c * dt - dx) / (c * dt + dx)
+     
 do i = 1, Nx - 1
- if (i < i1-1 ) then
+ if (i < i1-1) then
 do j = 1, Ny - 1
 fd%Ez(i,j) = fd%Ez(i,j) + fd%c_E(i,j) * ((fd%Hy(i,j) - fd%Hy(i-1,j))/ dx  &
                         - (fd%Hx(i,j) - fd%Hx(i,j-1)) / dy)
@@ -133,17 +92,39 @@ end do
 end if
 end do
 
-fd%Ez(0,:) = 0.0_dp
-fd%Ez(Nx,:) = 0.0_dp  
-fd%Ez(:,0) = 0.0_dp
-fd%Ez(:,Ny) = 0.0_dp
+ 
+  ! Bord gauche i=0
+  !do j = 1, Ny-1
+    fd%Ez(0,:) = fd%Ez(1,j) + coefMur * (fd%Ez(1,j) - fd%Ez(0,j))
+  !end do
+
+  ! Bord droit i=Nx
+ ! do j = 1, Ny-1
+    fd%Ez(Nx,:) = fd%Ez(Nx-1,j) + coefMur * (fd%Ez(Nx-1,j) - fd%Ez(Nx,j))
+ ! end do
+
+  ! Bord bas j=0
+  !do i = 1, Nx-1
+    fd%Ez(:,0) = fd%Ez(i,1) + coefMur * (fd%Ez(i,1) - fd%Ez(i,0))
+  !end do
+
+  ! Bord haut j=Ny
+  !do i = 1, Nx-1
+    fd%Ez(:,Ny) = fd%Ez(i,Ny-1) + coefMur * (fd%Ez(i,Ny-1) - fd%Ez(i,Ny))
+  !end do
+
+
+            
 
              ! Source dans domaine grossier
-fd%Ez(250,250) = fd%Ez(250, 250) + Esrc(n)
+fd%Ez(i_0,i_1) = fd%Ez(i_0, i_1) + Esrc(n)
+
+
+
 
             ! Mise à jour Hx dans le domaine grossier       
 do i = 0, Nx - 1
- if (i < i1-1 ) then
+ if (i < i1-1) then
 do j = 0, Ny - 1
      fd%Hx(i,j) = fd%Hx(i,j) - fd%c_H(i,j) / dy * (fd%Ez(i,j+1) - fd%Ez(i,j))
 
@@ -153,7 +134,7 @@ end do
 
             ! Mise à jour  Hy dans le domaine grossier
 do i = 0, Nx - 1
- if (i < i1-1 ) then
+ if (i < i1-1) then
 do j = 0, Ny - 1
 fd%Hy(i,j) = fd%Hy(i,j) + fd%c_H(i,j) / dx * (fd%Ez(i+1,j) - fd%Ez(i,j))
  end do
@@ -161,11 +142,10 @@ fd%Hy(i,j) = fd%Hy(i,j) + fd%c_H(i,j) / dx * (fd%Ez(i+1,j) - fd%Ez(i,j))
 end do
 
 
-
 do j = 0, Ny_sm - 1
-   Hz2 = fd%Hy(i1-1, j)
-   Hz3 = fd%Hy(i1-1, j-1)
-   Haux_y = (1.0_dp/3.0_dp)*Hz2 + (2.0_dp/3.0_dp)*Hz3
+   Hz2 = fd%Hy(i1-1, j-1)
+   Hz3 = fd%Hy(i1-1, j+1)
+   Haux_y = (2.0_dp/3.0_dp)*Hz2 + (1.0_dp/3.0_dp)*Hz3
 
    fd%ez_s(0,j) = fd%ez_s(0,j) + (dt_prime/ epsilon_0) * ( &
         (fd%hy_s(0,j) - f_Hy * Haux_y)/dx_prime - &
@@ -199,15 +179,20 @@ do i = 0, Nx_sm - 1
 end do
 
 do j = 1, Ny_sm - 1
-   eaux_z(j) = compute_ez_aux(fd, 0, j)
+  eaux_z = compute_ez_aux(fd, 0, j)
 end do
 
 
-do j = 1, Ny_sm - 1
-!do i = 1, i1 - 2
-  fd%Hy(i1-1, j) = fd%Hy(i1-1, j) + (fd%c_H(i1-1,j)/dx) * (fez * eaux_z(j) - fd%Ez(i1-1, j))
-!end do
+do j = 0, Ny- 1
+!(1.0_dp/3.0_dp) *(1.0* fd%ez_s(0, j-2)/3.0_dp + 2.0_dp * 2*fd%ez_s(0, j-1)/3.0_dp + &
+      !       fd%ez_s(0, j) + 2.0_dp * fd%ez_s(0, j+1)/3.0_dp + 1.0_dp *fd%ez_s(0, j+2)/3.0_dp) 
+ 
+ fd%Hy(i1-1, j) = fd%Hy(i1-1, j) + (fd%c_H(i1-1,j)/dx) * (fez * eaux_z - fd%Ez(i1-1, j))
+
 end do 
+
+
+
 
 
  end subroutine mise_a_jour_champs
@@ -229,13 +214,15 @@ end do
         1.0_dp/16.0_dp, 2.0_dp/16.0_dp, 1.0_dp/16.0_dp], &
         [3,3])
 
-    sum = 0.0_dp
+       sum = 0.0_dp
     do ii = -1, 1
         do jj = -1, 1
-            sum = sum + w(ii+2, jj+2) * fd%ez_s(i_f , j_f + jj)
+            if (i_f >= lbound(fd%ez_s,1) .and. i_f <= ubound(fd%ez_s,1) .and. &
+                j_f+jj >= lbound(fd%ez_s,2) .and. j_f+jj <= ubound(fd%ez_s,2)) then
+                sum = sum + w(ii+2, jj+2) * fd%ez_s(i_f, j_f + jj)
+            end if
         end do
     end do
-
     ez_aux = sum
 end function compute_ez_aux
 
