@@ -6,10 +6,10 @@ use lesreference
 implicit none
 
 type(tableau) :: sm
-integer :: n, Nt, m, i, j
+integer :: n, Nt, m, i, j,Ntr
 integer :: Nx, Ny, Nx_sm, Ny_sm, Nx_r, Ny_r
 integer, parameter :: r = 3
-real(dp), allocatable :: Esrc(:)
+real(dp), allocatable :: Esrc(:),Esrc_r(:)
 real(dp) ::  dt, dx_r, dy_r, dt_r
 real(dp) :: Lx, Ly, Lx_r, Ly_r
 !integer :: nr
@@ -21,7 +21,7 @@ real(dp) :: Lx, Ly, Lx_r, Ly_r
 Nx = 500
 Ny = 500
 Nt = 1200
- 
+Ntr = 3600
 Lx = Nx * dx
 Ly = Ny * dy
 print *, "Lx = ", Lx, "Ly = ", Ly
@@ -38,7 +38,7 @@ Lx_r = Nx_r * dx_r
 Ly_r = Ny_r * dy_r
 
 
-print *, "Lx_r = ", Lx_r, "Ly_r = ", Ly_r
+!print *, "Lx_r = ", Lx_r, "Ly_r = ", Ly_r
 
 
 dt_r  = dt/r
@@ -48,61 +48,15 @@ Ny_sm  = (Ny -j1)*r
 
 ! Excitation
 call excitation_donde(Esrc, Nt, dt)
+call excitation_donde(Esrc_r, Nt*3, dt_r)
 
 ! Initialisation des champs
 call sm%initialiser_champs(Nx, Ny, Nx_sm, Ny_sm, Nx_r, Ny_r, dt)
 
-! Fichiers de sortie
-open(unit=10, file="observation/Ez_t.dat", status='replace', action='write')
-open(unit=11, file="observation/Hx_t.dat", status='replace', action='write')
-open(unit=12, file="observation/Hy_t.dat", status='replace', action='write')
-open(unit=13, file="observation/carto_t.dat", status='replace', action='write')
-open(unit=14, file="observation/carto_t1.dat", status='replace', action='write')
-open(unit=15, file="observation/ez_s.dat", status='replace', action='write')
-open(unit=16, file="observation/Ez_r1.dat", status='replace', action='write')
-open(unit=17, file="observation/Hx_r1.dat", status='replace', action='write')
-open(unit=18, file="observation/Hy_r1.dat", status='replace', action='write')
-open(unit=19, file="observation/Ez_r2.dat", status='replace', action='write')
+call sm%mise_a_jour_champs(Nx, Ny, Ntr,  dx, dt, dy, Nx_sm, Ny_sm, Esrc_r)
 
-m = 0
-
-
-do n = 0, Nt - 1
-   if (mod(n, 100) == 0) print *, "Itération n°", n
-
-   ! Mise à jour champs + source + PML
-   call sm%mise_a_jour_champs(Nx, Ny, Nt, n, dx, dt, dy, Nx_sm, Ny_sm, Esrc)
-   call reference1(sm, Nx, Ny, Nt,n, dx, dt, dy, Esrc)
-   call reference2(sm, Nx_r, Ny_r, Nt,n, dx_r, dy_r, dt_r, Esrc)
-
-
-   ! Écriture ponctuelle des sondes
-   !if (mod(n, 10) == 0) then
-      write(10,*) n*dt, sm%Ez(100,250), sm%Ez(250,250), sm%Ez(150,250), sm%Ez(250,150)
-      write(11,*) n*dt, sm%Hx(250,250), sm%Hx(150,100), sm%Hx(50,100), sm%Hx(100,150)
-      write(12,*) n*dt, sm%Hy(250,250), sm%Hy(150,100), sm%Hy(50,100), sm%Hy(100,150)
-      write(15,*) n*dt_r, sm%ez_s(300,750), sm%ez_s(350,750), sm%ez_s(300,600), sm%ez_s(500,900)
-      write(16,*) n*dt, sm%Ez_r1(100,250), sm%Ez_r1(250,250), sm%Ez_r1(150,250), sm%Ez_r1(400,300)
-      write(17,*) n*dt, sm%Hx_r1(100,100), sm%Hx_r1(150,100), sm%Hx_r1(50,100), sm%Hx_r1(100,150)
-      write(18,*) n*dt, sm%Hy_r1(100,100), sm%Hy_r1(150,100), sm%Hy_r1(50,100), sm%Hy_r1(100,150)
-      write(19,*) n*dt_r, sm%Ez_r2(300,750), sm%Ez_r2(750,750), sm%Ez_r2(450,750), sm%Ez_r2(1200,900)
-   !end if
-
-   ! Sortie "carte" tous les 100 pas 
-   if (mod(n, 100) == 0) then
-      m = m + 1
-      do i = 0, Nx, 4
-         write(14,*) (sm%Ez(i,j), j=0, Ny, 4)
-      end do
-      write(14,*)
-
-      do i = 0, Nx_sm, 4
-         write(13,*) (sm%ez_s(i,j), j=0, Ny_sm, 4)
-      end do
-      write(13,*)
-   end if
-
-end do
+call reference1(sm, Nx, Ny, Nt, dx, dt, dy, Esrc)
+call reference2(sm, Nx_r, Ny_r, Nt*3, dx_r, dy_r, dt_r, Esrc_r)
 
 print *, "Nombre de cartes générées :", m
 

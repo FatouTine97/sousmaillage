@@ -1,19 +1,26 @@
-clear;
-cd '/home/fatou/Documents/sous_maillage/TP';
-M = load('carto_t1.dat');
 
+clear;
+cd '/home/fatou/Documents/sous_maillage/TP/observation';
+
+M = load('carto_t1.dat');
 nbc = 1;      % Nombre de composantes (ex: Ez)
 nuc = 1;      % Composante à visualiser
 nbcouleur = 256;
+% Paramètres de la grille (doivent correspondre à ceux du Fortran)
+nt_ech = 12
+nx_ech = 300/2;
+ny_ech = 300/2;
 
+s = size(M);
+nx_ech = s(1)/nt_ech;
+ny_ech = s(2);
+nbl = nx_ech;        % Nombre de lignes par image (Nx_sm / 2)
+nbt = nt_ech;          % Compteur de pas de temps
 taille = size(M);
 total_lines = taille(1);
 
 % Fixe la taille d'image désirée
-nbl = 250;
-
-% Calcule le nombre de pas de temps maximum possibles
-nbt = floor(total_lines / (nbl * nbc));
+%%nbt = floor(total_lines / (nbl * nbc));
 fprintf('Nombre de pas de temps détectés : %d\n', nbt);
 
 offset = nbl * nbc;
@@ -24,8 +31,10 @@ colormap(jet(nbcouleur));
 
 for j = 1:nbt
     nut = j;
-    imin = (nuc - 1) * nbl + 1 + (nut - 1) * offset;
-    imax = (nut - 1) * offset + nuc * nbl;
+    %imin = (nuc - 1) * nbl + 1 + (nut - 1) * offset;
+    %imax = (nut - 1) * offset + nuc * nbl;
+    imin =  1 + (nut - 1) * offset;
+    imax = nut * offset ;
 
     if imax > total_lines
         warning('Pas de temps %d dépasse les limites du fichier.', j);
@@ -48,3 +57,6 @@ for j = 1:nbt
 
     pause(1);
 end
+
+
+
