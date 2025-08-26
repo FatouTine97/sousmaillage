@@ -75,8 +75,10 @@ subroutine mise_a_jour_champs(fd, Nx, Ny, Nt, dx, dt, dy, Nx_sm, Ny_sm, Esrc)
     real(dp) :: Hz2, Hz3
     real(dp), allocatable :: Haux_y(:)
     integer :: i0, j0, n,m
-
-      
+real :: t1, t2
+integer, parameter :: snap_every_coarse = 100  ! toutes les 100 itérations GROSSIÈRES
+logical :: do_snapshot
+logical :: do_log
 
     ! Source au centre
     i0 = Nx / 2
@@ -91,7 +93,8 @@ subroutine mise_a_jour_champs(fd, Nx, Ny, Nt, dx, dt, dy, Nx_sm, Ny_sm, Esrc)
 
     coefMur = (c * dt - dx) / (c * dt + dx)
 
-    allocate(Haux_y(0:Ny_sm-1))
+
+   allocate(Haux_y(0:Ny_sm-1))
 
  ! Fichiers de sortie
 open(unit=10, file="observation/Ez_t.dat", status='replace', action='write')
@@ -101,6 +104,8 @@ open(unit=13, file="observation/carto_t.dat", status='replace', action='write')
 open(unit=14, file="observation/carto_t1.dat", status='replace', action='write')
 open(unit=15, file="observation/ez_s.dat", status='replace', action='write')
 
+! Chronométrage début
+call cpu_time(t1)
 
 m = 0
 do n = 0, Nt- 1
@@ -127,10 +132,15 @@ fd%Ez(Nx,:) = fd%Ez(Nx-1,:) + coefMur * (fd%Ez(Nx-1,:) - fd%Ez(Nx,:))
 fd%Ez(:,0) = fd%Ez(:,1) + coefMur * (fd%Ez(:,1) - fd%Ez(:,0))
 fd%Ez(:,Ny) = fd%Ez(:,Ny-1) + coefMur * (fd%Ez(:,Ny-1) - fd%Ez(:,Ny))
 
+
 !===========================================================
 ! 3. Source
 !===========================================================
-fd%Ez(i0,j0) = fd%Ez(i0,j0) + Esrc(n)*3
+fd%Ez(i0,j0) = fd%Ez(i0,j0) + Esrc(n)*3.0_dp
+
+
+
+
 !===========================================================
 ! 4. Mise à jour Hx, Hy (domaine grossier)
 !===========================================================
@@ -163,7 +173,7 @@ do j = 2, Ny_sm-3
 
     eaux_z = (1.0_dp/9.0_dp)*e1 + (2.0_dp/9.0_dp)*e2 + (1.0_dp/30_dp)*e3 + (2.0_dp/9.0_dp)*e4 +&
                 (1.0_dp/9.0_dp)*e5 + (1.0_dp/9.0_dp)*e1 + (2.0_dp/9.0_dp)*e2 + (1.0_dp/30_dp)*e3 + (2.0_dp/9.0_dp)*e4 +&
-                (1.0_dp/9.0_dp)*e5
+                (1.0_dp/9.0_dp)*e5 
 
     fd%Hy(i1-1,jr) = fd%Hy(i1-1,jr) + (fd%c_H(i1-1,jr)/dx) * (eaux_z - fd%Ez(i1-1,jr))
 end do
@@ -207,26 +217,60 @@ end do
         end do
     end do
 
-write(10,*)n*dt_prime,   fd%Ez(250,250),     fd%Ez(250,300),   fd%ez_s(300,1200)
+
+!do_log = (mod(n, r) == 0)  ! ne logguer qu'aux instants grossiers
+
+!if (do_log) then
+  ! write(10,'(F12.6,3(1X,ES16.8))') n*dt_prime, &
+   !     fd%Ez(250,250), fd%Ez(250,300), fd%ez_s(750,750)
+   !call flush(10)
+!end if
+write(10,*)n*dt_prime,   fd%Ez(250,250),     fd%Ez(250,300),   fd%ez_s(750,750)
       ! write(15,*) n*dt,                                     , sm%ez_s(500,900)
 ! write(11,*) n*dt, sm%Hx(250,250), sm%Hx(150,100), sm%Hx(50,100), sm%Hx(100,150)
 !!  write(12,*) n*dt, sm%Hy(250,250), sm%Hy(150,100), sm%Hy(50,100), sm%Hy(100,150)
      
-    if (mod(n/3, 100) == 0) then
-      m = m + 1
-      do i = 0, Nx, 4
-         write(14,*) (fd%Ez(i,j), j=0, Ny, 4)
-      end do
-      write(14,*)
 
-      do i = 0, Nx_sm, 4
-         write(13,*) (fd%ez_s(i,j), j=0, Ny_sm, 4)
-      end do
-      write(13,*)
-   end if
+
+     ! n = index fin, r = facteur de raffinement
+do_snapshot = (mod(n, r*snap_every_coarse) == 0)
+
+if (do_snapshot) then
+   ! (Optionnel) horodatage en commentaire pour Matlab
+   write(14,'(A,F12.6)') '# t = ', real(n,dp)/r * dt      ! CG : Ez
+   do i = 0, Nx, 4
+      write(14,*) (fd%Ez(i,j), j=0, Ny, 4)
+   end do
+   write(14,*)
+   call flush(14)
+
+   write(13,'(A,F12.6)') '# t = ', real(n,dp)/r * dt      ! FG : ez_s (même temps macro)
+   do i = 0, Nx_sm, 4
+      write(13,*) (fd%ez_s(i,j), j=0, Ny_sm, 4)
+   end do
+   write(13,*)
+   call flush(13)
+end if
+   ! if (mod(n, 100) == 0) then
+   !   m = m + 1
+   !   do i = 0, Nx, 4
+   !      write(14,*) (fd%Ez(i,j), j=0, Ny, 4)
+   !   end do
+   !   write(14,*)
+!
+   !   do i = 0, Nx_sm, 4
+   !      write(13,*) (fd%ez_s(i,j), j=0, Ny_sm, 4)
+   !   end do
+   !   write(13,*)
+   !end if
 
 end do 
+close(13); close(14); close(10)
 
+ ! Chronométrage fin
+   call cpu_time(t2)
+   print *, "Temps (mise à jour champs) =", t2 - t1, " secondes"
+   !print *, "Temps moyen par itération =", (t2 - t1) / real(Nt,dp), " s"
  end subroutine mise_a_jour_champs
   
 

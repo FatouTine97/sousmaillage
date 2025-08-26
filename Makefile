@@ -14,7 +14,7 @@ FLAGS = -O3 -mavx -fbacktrace
 #-Wall
 
 # Fichiers sources et objets
-SRC = main.f90 numeriques.f90 source.f90 lesfonctioni.f90  reference.f90
+SRC = main.f90 numeriques.f90 source.f90 lesfonctioni.f90  reference.f90 #dispersion.f90
 OBJ = $(SRC:.f90=.o)
 
 # Règle par défaut
@@ -37,7 +37,10 @@ lesfonctioni.o: lesfonction.f90 numeriques.o source.o
 reference.o: reference.f90 lesfonctioni.o numeriques.o source.o
 	$(FC) $(FLAGS) -c reference.f90
 
-main.o: main.f90 numeriques.o lesfonctioni.o source.o reference.o
+#dispersion.o: dispersion.f90 numeriques.o lesfonctioni.o source.o reference.o
+	#$(FC) $(FLAGS) -c dispersion.f90
+
+main.o: main.f90 numeriques.o lesfonctioni.o source.o reference.o #dispersion.o
 	$(FC) $(FLAGS) -c main.f90
 
 # Nettoyage des fichiers générés
