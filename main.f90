@@ -3,6 +3,7 @@ use lesconstantes_numeriques
 use  lexcitation_donde
 use lesfonction
 use lesreference
+  use cpml_2d
 !use  dispersion_tmz2d_cg_fg
 implicit none
 
@@ -55,7 +56,7 @@ call excitation_donde(Esrc_r, Ntr, dt_r)
 ! Initialisation
 ! -------------------------
 
-call sm%initialiser_champs(Nx, Ny, Nx_sm, Ny_sm, Nx_r, Ny_r, dt_r)
+call sm%initialiser_champs(Nx, Ny, Nx_sm, Ny_sm, Nx_r, Ny_r, dt)
 
 ! -------------------------
 ! Mise à jour des champs
@@ -68,8 +69,7 @@ call sm%mise_a_jour_champs(Nx, Ny, Ntr, dx, dt, dy, Nx_sm, Ny_sm, Esrc_r)
 ! -------------------------
 
 call reference1(sm, Nx, Ny, Nt, dx, dt, dy, Esrc)
-call reference2(sm, Nx_r, Ny_r, Ntr, dx_r, dy_r, dt_r, Esrc_r)
-
+call reference2(sm, Nx_r, Ny_r, Ntr, dx_r, dt_r, dy_r, Esrc_r)
 ! -------------------------
 ! Dispersion
 ! -------------------------
